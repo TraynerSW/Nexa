@@ -1,4 +1,4 @@
-import os, sys, threading, time, asyncio, random, sqlite3, configparser, re, queue, concurrent.futures, platform, signal, requests, pyperclip, websockets, ast, locale, uuid, tkinter as tk
+import os, sys, subprocess, threading, time, asyncio, random, sqlite3, configparser, re, queue, concurrent.futures, platform, signal, requests, pyperclip, websockets, ast, locale, uuid, tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, StringVar
 from datetime import datetime, timedelta
 from ecies import encrypt, decrypt
@@ -99,6 +99,45 @@ def parse_color_input(color_input):
 		r, g, b = map(int, rgb_match.groups())
 		if all(0 <= v <= 255 for v in (r, g, b)):
 			primary = f"#{r:02x}{g:02x}{b:02x}"
+			secondary = darken(primary)
+			return (primary, secondary)
+	return None
+
+def parse_color_input(color_input):
+	"""
+	Permet d'utiliser /color #hex ou /color rgb(r,g,b) pour choisir la couleur principale.
+	Retourne (primary, secondary) ou None si invalide.
+	"""
+	color_input = color_input.strip()
+	# Hex format: #RRGGBB
+	hex_match = re.fullmatch(r'#([0-9a-fA-F]{6})', color_input)
+	if hex_match:
+		primary = f"#{hex_match.group(1)}"
+		# Génère une couleur secondaire plus foncée
+		def darken(hex_color, factor=0.8):
+			r = int(hex_color[1:3], 16)
+			g = int(hex_color[3:5], 16)
+			b = int(hex_color[5:7], 16)
+			r = int(r * factor)
+			g = int(g * factor)
+			b = int(b * factor)
+			return f"#{r:02x}{g:02x}{b:02x}"
+		secondary = darken(primary)
+		return (primary, secondary)
+	# RGB format: rgb(r,g,b)
+	rgb_match = re.fullmatch(r'rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)', color_input, re.IGNORECASE)
+	if rgb_match:
+		r, g, b = map(int, rgb_match.groups())
+		if all(0 <= v <= 255 for v in (r, g, b)):
+			primary = f"#{r:02x}{g:02x}{b:02x}"
+			def darken(hex_color, factor=0.8):
+				r = int(hex_color[1:3], 16)
+				g = int(hex_color[3:5], 16)
+				b = int(hex_color[5:7], 16)
+				r = int(r * factor)
+				g = int(g * factor)
+				b = int(b * factor)
+				return f"#{r:02x}{g:02x}{b:02x}"
 			secondary = darken(primary)
 			return (primary, secondary)
 	return None
@@ -1556,8 +1595,8 @@ class NexaInterface(tk.Tk):
 			ttk.Label(content_frame, text=DATA_DIR, justify='center').pack(anchor='center', pady=(0, 10))
 			btn_frame = ttk.Frame(content_frame)
 			btn_frame.pack(pady=(0, 10))
+      
 			def open_folder():
-				import subprocess, platform
 				if platform.system() == "Windows":
 					os.startfile(DATA_DIR)
 				elif platform.system() == "Darwin":
@@ -1570,6 +1609,7 @@ class NexaInterface(tk.Tk):
 								font=(self.default_font, 9, 'bold'),
 								relief=tk.RAISED, borderwidth=0, cursor="hand2")
 			voir_btn.pack(side=tk.LEFT, padx=5)
+      
 			def copier_et_fermer():
 				pyperclip.copy(DATA_DIR)
 				dialog.destroy()
@@ -1582,6 +1622,7 @@ class NexaInterface(tk.Tk):
 			self.after(100, lambda: (dialog.deiconify(), dialog.lift(), dialog.focus_force(), dialog.attributes('-topmost', 1)))
 			self.message_to_send.set("")
 			return
+    
 		if message == "/reconnect":					# Affiche la page de reconnexion
 			self._reconnecting = True
 			self.disconnect_and_reset()
